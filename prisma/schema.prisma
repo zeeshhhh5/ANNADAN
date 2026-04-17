@@ -1,0 +1,523 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum UserRole {
+  DONOR
+  NGO
+  COLLECTOR
+  FARMER
+  BENEFICIARY
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum FoodCategory {
+  COOKED_MEALS
+  RAW_VEGETABLES
+  FRUITS
+  DAIRY
+  BAKERY
+  BEVERAGES
+  PACKAGED
+  MIXED
+  OTHER
+}
+
+enum ListingStatus {
+  ACTIVE
+  BIDDING
+  ASSIGNED
+  COLLECTED
+  DISTRIBUTED
+  EXPIRED
+  CANCELLED
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum CollectionStatus {
+  SCHEDULED
+  IN_TRANSIT
+  PICKED_UP
+  SORTING
+  COMPLETED
+  CANCELLED
+}
+
+enum WasteType {
+  EDIBLE
+  ORGANIC_COMPOST
+  BIOGAS_SUITABLE
+  MIXED
+}
+
+enum WasteOrderStatus {
+  AVAILABLE
+  BIDDING
+  SOLD
+  DELIVERED
+  CANCELLED
+}
+
+enum CreditStatus {
+  PENDING
+  APPROVED
+  MINTED
+  LISTED
+  SOLD
+}
+
+enum UrgencyLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum NotificationType {
+  BID_RECEIVED
+  BID_ACCEPTED
+  BID_REJECTED
+  LISTING_MATCHED
+  COLLECTION_SCHEDULED
+  COLLECTION_COMPLETED
+  CREDIT_EARNED
+  CREDIT_SOLD
+  KYC_APPROVED
+  KYC_REJECTED
+  REQUIREMENT_MATCHED
+  SYSTEM
+}
+
+// ==================== MODELS ====================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  phone         String?   @unique
+  password      String
+  name          String
+  role          UserRole
+  avatar        String?
+  isVerified    Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  organization     Organization?
+  foodListings     FoodListing[]
+  bids             Bid[]
+  ngoRequirements  NGORequirement[]
+  collections      Collection[]
+  wasteOrdersBuyer WasteOrder[]       @relation("BuyerOrders")
+  carbonCredits    CarbonCredit[]
+  carbonTrades     CarbonTrade[]
+  impactLogs       ImpactLog[]
+  notifications    Notification[]
+  accounts         Account[]
+  sessions         Session[]
+  footpathLogs     FootpathLog[]
+  biogasDeliveries BiogasDelivery[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Organization {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  name               String
+  type               String
+  description        String?
+  address            String
+  city               String
+  state              String
+  pincode            String
+  lat                Float?
+  lng                Float?
+  registrationNumber String?
+  fssaiLicense       String?
+  panNumber          String?
+  gstNumber          String?
+  kycDocuments       Json?
+  verificationStatus VerificationStatus @default(PENDING)
+  verifiedAt         DateTime?
+  verifiedBy         String?
+  rejectionReason    String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([verificationStatus])
+  @@index([city])
+}
+
+model FoodListing {
+  id                    String        @id @default(cuid())
+  donorId               String
+  title                 String
+  description           String?
+  category              FoodCategory
+  quantityKg            Float
+  servings              Int?
+  preparedAt            DateTime
+  bestBefore            DateTime
+  freezeHoursRemaining  Int?
+  canFreeze             Boolean       @default(false)
+  isVegetarian          Boolean       @default(true)
+  allergens             String[]
+  cuisineType           String?
+  images                String[]
+  lat                   Float
+  lng                   Float
+  address               String
+  pickupInstructions    String?
+  status                ListingStatus @default(ACTIVE)
+  aiTags                String[]
+  aiConfidenceScore     Float?
+  freeForDecomposition  Boolean       @default(true)
+  decompositionSavings  Float?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  expiresAt             DateTime?
+
+  // Relations
+  donor         User           @relation(fields: [donorId], references: [id])
+  bids          Bid[]
+  collections   Collection[]
+  carbonCredits CarbonCredit[]
+  wasteOrders   WasteOrder[]
+  footpathLogs  FootpathLog[]
+
+  @@index([status])
+  @@index([category])
+  @@index([donorId])
+  @@index([bestBefore])
+}
+
+model Bid {
+  id          String    @id @default(cuid())
+  listingId   String
+  bidderId    String
+  bidAmount   Float?
+  message     String?
+  status      BidStatus @default(PENDING)
+  isUrgent    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  respondedAt DateTime?
+
+  listing FoodListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  bidder  User        @relation(fields: [bidderId], references: [id])
+
+  @@index([listingId])
+  @@index([bidderId])
+  @@index([status])
+}
+
+model NGORequirement {
+  id             String       @id @default(cuid())
+  ngoId          String
+  title          String
+  foodCategory   FoodCategory
+  quantityKg     Float
+  servingsNeeded Int?
+  neededBy       DateTime
+  urgency        UrgencyLevel @default(MEDIUM)
+  description    String?
+  pickupRadius   Float?
+  lat            Float?
+  lng            Float?
+  isActive       Boolean      @default(true)
+  fulfilledKg    Float        @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  ngo User @relation(fields: [ngoId], references: [id])
+
+  @@index([ngoId])
+  @@index([isActive])
+  @@index([urgency])
+}
+
+model Collection {
+  id                 String           @id @default(cuid())
+  listingId          String
+  collectorId        String
+  scheduledAt        DateTime
+  pickedUpAt         DateTime?
+  completedAt        DateTime?
+  status             CollectionStatus @default(SCHEDULED)
+  routeData          Json?
+  qualityCheckPhotos String[]
+  qualityNotes       String?
+  totalKgCollected   Float?
+  edibleKg           Float?
+  wasteKg            Float?
+  wasteType          WasteType?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  listing   FoodListing @relation(fields: [listingId], references: [id])
+  collector User        @relation(fields: [collectorId], references: [id])
+
+  @@index([collectorId])
+  @@index([status])
+}
+
+model WasteOrder {
+  id              String           @id @default(cuid())
+  listingId       String?
+  collectorId     String?
+  farmerId        String?
+  biogasPlantId   String?
+  wasteType       WasteType
+  wasteKg         Float
+  pricePerKg      Float?
+  totalAmount     Float?
+  status          WasteOrderStatus @default(AVAILABLE)
+  description     String?
+  images          String[]
+  pickupAddress   String?
+  lat             Float?
+  lng             Float?
+  deliveredAt     DateTime?
+  carbonCreditsId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  listing       FoodListing?   @relation(fields: [listingId], references: [id])
+  buyer         User?          @relation("BuyerOrders", fields: [farmerId], references: [id])
+  carbonCredits CarbonCredit?  @relation(fields: [carbonCreditsId], references: [id])
+  biogasPlant   BiogasPlant?   @relation(fields: [biogasPlantId], references: [id])
+
+  @@index([status])
+  @@index([wasteType])
+}
+
+model BiogasPlant {
+  id            String   @id @default(cuid())
+  name          String
+  address       String
+  city          String
+  state         String
+  lat           Float?
+  lng           Float?
+  capacity      Float
+  contactEmail  String
+  contactPhone  String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  wasteOrders      WasteOrder[]
+  biogasDeliveries BiogasDelivery[]
+  carbonCredits    CarbonCredit[]
+}
+
+model BiogasDelivery {
+  id              String   @id @default(cuid())
+  biogasPlantId   String
+  collectorId     String
+  wasteKg         Float
+  deliveredAt     DateTime @default(now())
+  carbonCreditsEarned Float?
+  notes           String?
+
+  biogasPlant BiogasPlant @relation(fields: [biogasPlantId], references: [id])
+  collector   User        @relation(fields: [collectorId], references: [id])
+
+  @@index([biogasPlantId])
+  @@index([collectorId])
+}
+
+model FootpathLog {
+  id           String   @id @default(cuid())
+  collectorId  String
+  listingId    String?
+  portionsServed Int
+  location     String
+  lat          Float
+  lng          Float
+  photos       String[]
+  notes        String?
+  servedAt     DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  collector User         @relation(fields: [collectorId], references: [id])
+  listing   FoodListing? @relation(fields: [listingId], references: [id])
+
+  @@index([collectorId])
+  @@index([servedAt])
+}
+
+model CarbonCredit {
+  id              String       @id @default(cuid())
+  listingId       String?
+  biogasPlantId   String?
+  actorId         String
+  kgDiverted      Float
+  co2SavedKg      Float
+  credits         Float
+  status          CreditStatus @default(PENDING)
+  pricePerCredit  Float?
+  approvedAt      DateTime?
+  approvedBy      String?
+  mintedAt        DateTime?
+  certificateUrl  String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  listing     FoodListing?  @relation(fields: [listingId], references: [id])
+  biogasPlant BiogasPlant?  @relation(fields: [biogasPlantId], references: [id])
+  actor       User          @relation(fields: [actorId], references: [id])
+  trades      CarbonTrade[]
+  wasteOrders WasteOrder[]
+
+  @@index([status])
+  @@index([actorId])
+}
+
+model CarbonTrade {
+  id             String   @id @default(cuid())
+  creditId       String
+  buyerId        String
+  buyerType      String
+  companyName    String?
+  pricePerCredit Float
+  creditsBought  Float
+  totalAmount    Float
+  paymentId      String?
+  paymentStatus  String   @default("PENDING")
+  invoiceUrl     String?
+  createdAt      DateTime @default(now())
+
+  credit CarbonCredit @relation(fields: [creditId], references: [id])
+  buyer  User         @relation(fields: [buyerId], references: [id])
+
+  @@index([creditId])
+  @@index([buyerId])
+}
+
+model ImpactLog {
+  id            String   @id @default(cuid())
+  actorId       String
+  actorRole     UserRole
+  mealsDelivered Int      @default(0)
+  kgDiverted    Float    @default(0)
+  co2SavedKg    Float    @default(0)
+  creditsEarned Float    @default(0)
+  date          DateTime @default(now())
+  metadata      Json?
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([date])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+}
+
+model TaxCertificate {
+  id            String   @id @default(cuid())
+  donorId       String
+  donorName     String
+  organizationName String
+  totalKgDonated Float
+  totalMeals    Int
+  co2Saved      Float
+  financialYear String
+  certificateNumber String @unique
+  certificateUrl String?
+  generatedAt   DateTime @default(now())
+
+  @@index([donorId])
+  @@index([financialYear])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String
+  oldData    Json?
+  newData    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType])
+  @@index([createdAt])
+}
