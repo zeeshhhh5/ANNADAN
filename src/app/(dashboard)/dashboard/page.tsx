@@ -5,6 +5,7 @@ import { NGODashboard } from "@/components/dashboard/ngo-dashboard";
 import { CollectorDashboard } from "@/components/dashboard/collector-dashboard";
 import { BeneficiaryDashboard } from "@/components/dashboard/beneficiary-dashboard";
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
+import { FarmerDashboard } from "@/components/dashboard/farmer-dashboard";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -19,7 +20,8 @@ export default async function DashboardPage() {
     ADMIN: AdminDashboard,
     DONOR: DonorDashboard,
     NGO: NGODashboard,
-    COLLECTOR: CollectorDashboard, // Includes Farmer functionality
+    COLLECTOR: CollectorDashboard,
+    FARMER: FarmerDashboard,
     BENEFICIARY: BeneficiaryDashboard,
   };
 

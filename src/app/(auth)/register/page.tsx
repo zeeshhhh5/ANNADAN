@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +18,12 @@ import {
   ArrowLeft,
   Check,
   ShieldCheck,
+  Loader2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
-type UserRole = "ADMIN" | "DONOR" | "NGO" | "COLLECTOR" | "BENEFICIARY";
+type UserRole = "ADMIN" | "DONOR" | "NGO" | "COLLECTOR" | "FARMER" | "BENEFICIARY";
 
 const roleConfig: Record<
   UserRole,
@@ -39,9 +43,15 @@ const roleConfig: Record<
   },
   COLLECTOR: {
     icon: Truck,
-    label: "Collector / Farmer",
-    description: "Collect food waste, manage organic waste & composting",
+    label: "Collector",
+    description: "Collect and transport food donations",
     color: "from-orange-500 to-orange-600",
+  },
+  FARMER: {
+    icon: Truck,
+    label: "Farmer",
+    description: "Manage organic waste & composting",
+    color: "from-green-600 to-green-700",
   },
   BENEFICIARY: {
     icon: Heart,
@@ -62,6 +72,7 @@ export default function RegisterPage() {
   const [step, setStep] = useState(1);
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -88,6 +99,11 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!formData.name || formData.name.length < 2) {
+      toast.error("Name must be at least 2 characters");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -95,7 +111,10 @@ export default function RegisterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...formData,
+          name: formData.name.trim(),
+          email: formData.email.toLowerCase().trim(),
+          phone: formData.phone,
+          password: formData.password,
           role: selectedRole,
         }),
       });
@@ -106,11 +125,26 @@ export default function RegisterPage() {
         throw new Error(data.error || "Registration failed");
       }
 
-      toast.success("Account created successfully! Please sign in.");
-      router.push("/login");
+      toast.success("Account created! Signing you in...");
+
+      // Auto-login after registration
+      const signInResult = await signIn("credentials", {
+        email: formData.email.toLowerCase().trim(),
+        password: formData.password,
+        redirect: false,
+      });
+
+      if (signInResult?.ok) {
+        toast.success("Welcome to AnnaDaan!");
+        window.location.href = "/dashboard";
+      } else {
+        // If auto-login fails, redirect to login page
+        toast.info("Please sign in with your new account");
+        router.push("/login");
+      }
     } catch (error: any) {
+      console.error("Registration error:", error);
       toast.error(error.message || "Something went wrong");
-    } finally {
       setIsLoading(false);
     }
   };
@@ -191,7 +225,7 @@ export default function RegisterPage() {
 
               {/* Role Selection */}
               <div className="grid gap-4">
-                {(["DONOR", "NGO", "COLLECTOR", "BENEFICIARY"] as UserRole[]).map((role) => {
+                {(["DONOR", "NGO", "COLLECTOR", "FARMER", "BENEFICIARY"] as UserRole[]).map((role) => {
                   const config = roleConfig[role];
                   const Icon = config.icon;
                   return (
@@ -315,37 +349,50 @@ export default function RegisterPage() {
                   <Label htmlFor="password" className="text-gray-300">
                     Password
                   </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Create a password (min 6 characters)"
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
-                    className="bg-gray-900 border-gray-800 text-white placeholder:text-gray-500 h-12 focus:border-green-500 focus:ring-green-500"
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Create a password (min 6 characters)"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      className="bg-gray-900 border-gray-800 text-white placeholder:text-gray-500 h-12 focus:border-green-500 focus:ring-green-500 pr-12"
+                      required
+                      disabled={isLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword" className="text-gray-300">
                     Confirm Password
                   </Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder="Confirm your password"
-                    value={formData.confirmPassword}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        confirmPassword: e.target.value,
-                      })
-                    }
-                    className="bg-gray-900 border-gray-800 text-white placeholder:text-gray-500 h-12 focus:border-green-500 focus:ring-green-500"
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Confirm your password"
+                      value={formData.confirmPassword}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                      className="bg-gray-900 border-gray-800 text-white placeholder:text-gray-500 h-12 focus:border-green-500 focus:ring-green-500"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
                 </div>
 
                 <Button
@@ -353,7 +400,14 @@ export default function RegisterPage() {
                   className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white h-12 font-medium"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Creating account..." : "Create Account"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating account...
+                    </>
+                  ) : (
+                    "Create Account"
+                  )}
                 </Button>
 
                 <p className="text-center text-gray-500 text-sm">

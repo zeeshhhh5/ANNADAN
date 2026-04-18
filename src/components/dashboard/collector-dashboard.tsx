@@ -17,9 +17,24 @@ import {
   HandHeart,
   Recycle,
   Leaf,
+  QrCode,
+  Scan,
 } from "lucide-react";
+import { QRScannerButton, QRCodeScanner } from "@/components/qr-code";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export function CollectorDashboard() {
+  const [scanDialogOpen, setScanDialogOpen] = useState(false);
+  const [scanResult, setScanResult] = useState<any>(null);
+
+  const handleScanComplete = (result: { success: boolean; data?: any; error?: string }) => {
+    if (result.success && result.data) {
+      setScanResult(result.data);
+      // Could redirect to pickup or show details
+      console.log("Scanned QR:", result.data);
+    }
+  };
+
   const [availablePickups] = useState([
     {
       id: "1",
@@ -174,6 +189,14 @@ export function CollectorDashboard() {
               <CardTitle className="text-white">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
+                onClick={() => setScanDialogOpen(true)}
+              >
+                <Scan className="w-4 h-4 mr-2 text-blue-400" />
+                Scan Pickup QR
+              </Button>
               <Link href="/collector/footpath" className="block">
                 <Button variant="outline" className="w-full justify-start bg-gray-800 border-gray-700 text-white hover:bg-gray-700">
                   <HandHeart className="w-4 h-4 mr-2 text-red-400" />
@@ -231,6 +254,42 @@ export function CollectorDashboard() {
           </Card>
         </div>
       </div>
+
+      {/* QR Scan Dialog */}
+      <Dialog open={scanDialogOpen} onOpenChange={setScanDialogOpen}>
+        <DialogContent className="max-w-md bg-gray-900 border-gray-800">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Scan className="w-5 h-5 text-green-400" />
+              Scan Pickup QR Code
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Scan a QR code to verify and accept a pickup
+            </DialogDescription>
+          </DialogHeader>
+          <QRCodeScanner 
+            onScan={handleScanComplete} 
+            onClose={() => setScanDialogOpen(false)}
+          />
+          {scanResult && (
+            <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <p className="text-sm text-green-400 font-medium mb-1">Pickup Verified!</p>
+              <pre className="text-xs text-gray-400 overflow-auto max-h-24">
+                {JSON.stringify(scanResult, null, 2)}
+              </pre>
+              <Button 
+                onClick={() => {
+                  setScanResult(null);
+                  setScanDialogOpen(false);
+                }}
+                className="w-full mt-2 bg-green-500 hover:bg-green-600"
+              >
+                Accept Pickup
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Biogas Partnership Banner */}
       <Card className="bg-gradient-to-r from-emerald-900/30 to-green-900/30 border-emerald-800/50">

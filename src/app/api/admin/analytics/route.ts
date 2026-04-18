@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
         DONOR: users.filter((u) => u.role === "DONOR").length,
         NGO: users.filter((u) => u.role === "NGO").length,
         COLLECTOR: users.filter((u) => u.role === "COLLECTOR").length,
+        FARMER: users.filter((u) => u.role === "FARMER").length,
         BENEFICIARY: users.filter((u) => u.role === "BENEFICIARY").length,
       },
       verified: users.filter((u) => u.isVerified).length,
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
       total: listings.length,
       byStatus: {
         ACTIVE: listings.filter((l) => l.status === "ACTIVE").length,
+        BIDDING: listings.filter((l) => l.status === "BIDDING").length,
         ASSIGNED: listings.filter((l) => l.status === "ASSIGNED").length,
         COLLECTED: listings.filter((l) => l.status === "COLLECTED").length,
         DISTRIBUTED: listings.filter((l) => l.status === "DISTRIBUTED").length,
@@ -55,8 +57,11 @@ export async function GET(request: NextRequest) {
       total: collections.length,
       byStatus: {
         SCHEDULED: collections.filter((c) => c.status === "SCHEDULED").length,
-        IN_PROGRESS: collections.filter((c) => c.status === "IN_PROGRESS").length,
+        IN_TRANSIT: collections.filter((c) => c.status === "IN_TRANSIT").length,
+        PICKED_UP: collections.filter((c) => c.status === "PICKED_UP").length,
+        SORTING: collections.filter((c) => c.status === "SORTING").length,
         COMPLETED: collections.filter((c) => c.status === "COMPLETED").length,
+        CANCELLED: collections.filter((c) => c.status === "CANCELLED").length,
       },
       totalKgCollected: collections.reduce((sum, c) => sum + (c.totalKgCollected || 0), 0),
       edibleKg: collections.reduce((sum, c) => sum + (c.edibleKg || 0), 0),
@@ -70,8 +75,10 @@ export async function GET(request: NextRequest) {
       totalCO2Saved: credits.reduce((sum, c) => sum + c.co2Saved, 0),
       byStatus: {
         PENDING: credits.filter((c) => c.status === "PENDING").length,
-        VERIFIED: credits.filter((c) => c.status === "VERIFIED").length,
-        TRADED: credits.filter((c) => c.status === "TRADED").length,
+        APPROVED: credits.filter((c) => c.status === "APPROVED").length,
+        MINTED: credits.filter((c) => c.status === "MINTED").length,
+        LISTED: credits.filter((c) => c.status === "LISTED").length,
+        SOLD: credits.filter((c) => c.status === "SOLD").length,
       },
     };
 
@@ -79,9 +86,7 @@ export async function GET(request: NextRequest) {
     const distributionStats = {
       total: distributions.length,
       totalMealsProvided: distributions.reduce((sum, d) => sum + d.mealsProvided, 0),
-      uniqueBeneficiaries: new Set(
-        distributions.flatMap((d) => d.beneficiaryIds)
-      ).size,
+      totalBeneficiaries: distributions.reduce((sum, d) => sum + d.beneficiaryCount, 0),
     };
 
     // Impact metrics
@@ -90,8 +95,8 @@ export async function GET(request: NextRequest) {
       kgDiverted: carbonStats.totalKgDiverted,
       co2SavedKg: carbonStats.totalCO2Saved,
       creditsEarned: carbonStats.totalCredits,
-      familiesHelped: distributionStats.uniqueBeneficiaries,
-      equivalentTrees: Math.floor(carbonStats.totalCO2Saved / 21), // 1 tree absorbs ~21kg CO2/year
+      familiesHelped: distributionStats.totalBeneficiaries,
+      equivalentTrees: Math.floor(carbonStats.totalCO2Saved / 21),
     };
 
     // Recent activity (last 7 days)
@@ -101,7 +106,7 @@ export async function GET(request: NextRequest) {
       newUsers: users.filter((u) => new Date(u.createdAt) > sevenDaysAgo).length,
       newListings: listings.filter((l) => new Date(l.createdAt) > sevenDaysAgo).length,
       completedCollections: collections.filter(
-        (c) => c.status === "COMPLETED" && new Date(c.completedAt!) > sevenDaysAgo
+        (c) => c.status === "COMPLETED" && c.completedAt && new Date(c.completedAt) > sevenDaysAgo
       ).length,
       newDistributions: distributions.filter(
         (d) => new Date(d.createdAt) > sevenDaysAgo

@@ -15,9 +15,23 @@ import {
   Building2,
   ArrowRight,
   Phone,
+  Scan,
+  CheckCircle,
 } from "lucide-react";
+import { QRCodeScanner } from "@/components/qr-code";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export function BeneficiaryDashboard() {
+  const [scanDialogOpen, setScanDialogOpen] = useState(false);
+  const [scanResult, setScanResult] = useState<any>(null);
+
+  const handleScanComplete = (result: { success: boolean; data?: any; error?: string }) => {
+    if (result.success && result.data) {
+      setScanResult(result.data);
+      console.log("Scanned QR:", result.data);
+    }
+  };
+
   const [availableFood] = useState([
     {
       id: "1",
@@ -84,6 +98,30 @@ export function BeneficiaryDashboard() {
           </Button>
         </Link>
       </div>
+
+      {/* QR Scan CTA */}
+      <Card className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 border-green-800/50">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Scan className="w-5 h-5 text-green-400" />
+                Quick Pickup
+              </h3>
+              <p className="text-gray-300 mt-1">
+                Scan QR code to quickly verify and receive your food
+              </p>
+            </div>
+            <Button 
+              className="bg-green-500 hover:bg-green-600 text-white"
+              onClick={() => setScanDialogOpen(true)}
+            >
+              <Scan className="w-4 h-4 mr-2" />
+              Scan QR Code
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -212,6 +250,45 @@ export function BeneficiaryDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* QR Scan Dialog */}
+      <Dialog open={scanDialogOpen} onOpenChange={setScanDialogOpen}>
+        <DialogContent className="max-w-md bg-gray-900 border-gray-800">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Scan className="w-5 h-5 text-green-400" />
+              Scan Food QR Code
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Scan the QR code to verify and receive your food pickup
+            </DialogDescription>
+          </DialogHeader>
+          <QRCodeScanner 
+            onScan={handleScanComplete} 
+            onClose={() => setScanDialogOpen(false)}
+          />
+          {scanResult && (
+            <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <span className="text-green-400 font-medium">Food Verified!</span>
+              </div>
+              <pre className="text-xs text-gray-400 overflow-auto max-h-24">
+                {JSON.stringify(scanResult, null, 2)}
+              </pre>
+              <Button 
+                onClick={() => {
+                  setScanResult(null);
+                  setScanDialogOpen(false);
+                }}
+                className="w-full mt-2 bg-green-500 hover:bg-green-600"
+              >
+                Complete Pickup
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Help Banner */}
       <Card className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-blue-800/50">

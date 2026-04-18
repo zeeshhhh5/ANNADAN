@@ -27,6 +27,9 @@ import {
   TrendingUp,
   Recycle,
   HandHeart,
+  User,
+  Globe,
+  QrCode,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -37,8 +40,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { LanguageSelector } from "@/components/language-selector";
 
-type UserRole = "ADMIN" | "DONOR" | "NGO" | "COLLECTOR" | "BENEFICIARY";
+type UserRole = "ADMIN" | "DONOR" | "NGO" | "COLLECTOR" | "FARMER" | "BENEFICIARY";
 
 interface NavItem {
   title: string;
@@ -73,11 +77,19 @@ const roleNavItems: Record<UserRole, NavItem[]> = {
   ],
   COLLECTOR: [
     { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { title: "Available Pickups", href: "/collector/pickups", icon: Map },
-    { title: "My Collections", href: "/collector/collections", icon: Truck },
+    { title: "Route Planner", href: "/collector/route", icon: Map },
+    { title: "Available Pickups", href: "/collector/pickups", icon: Truck },
+    { title: "My Collections", href: "/collector/collections", icon: Package },
     { title: "Waste Management", href: "/collector/waste", icon: Recycle },
     { title: "Composting", href: "/collector/compost", icon: Sprout },
     { title: "Earnings", href: "/collector/earnings", icon: TrendingUp },
+  ],
+  FARMER: [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { title: "Waste Marketplace", href: "/farmer/marketplace", icon: Package },
+    { title: "My Orders", href: "/farmer/orders", icon: ClipboardList },
+    { title: "Composting", href: "/farmer/compost", icon: Sprout },
+    { title: "ROI Calculator", href: "/farmer/roi", icon: TrendingUp },
   ],
   BENEFICIARY: [
     { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -140,7 +152,10 @@ export function Sidebar() {
       </nav>
 
       {/* User Section */}
-      <div className="p-4 border-t border-gray-800">
+      <div className="p-4 border-t border-gray-800 space-y-3">
+        {/* Language Selector */}
+        <LanguageSelector />
+        
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-gray-800 transition-colors outline-none">
             <Avatar className="w-10 h-10">

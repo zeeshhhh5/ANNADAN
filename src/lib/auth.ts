@@ -3,7 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { stores, verifyPassword } from "./data-store";
 
-export type UserRole = "ADMIN" | "DONOR" | "NGO" | "COLLECTOR" | "BENEFICIARY";
+export type UserRole = "ADMIN" | "DONOR" | "NGO" | "COLLECTOR" | "FARMER" | "BENEFICIARY";
 
 declare module "next-auth" {
   interface Session {

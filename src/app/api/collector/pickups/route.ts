@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { stores, generateId, type Collection } from "@/lib/data-store";
+import { stores, addCollection, updateListing, saveData } from "@/lib/data-store";
 
 // GET /api/collector/pickups - Get available pickups
 export async function GET(request: NextRequest) {
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.role !== "COLLECTOR") {
+    if (session.user.role !== "COLLECTOR" && session.user.role !== "FARMER") {
       return NextResponse.json({ success: false, error: "Only collectors can view pickups" }, { status: 403 });
     }
 
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     // Get active listings not assigned to anyone
     let listings = Array.from(stores.listings.values()).filter(
-      (l) => l.status === "ACTIVE" && new Date(l.bestBefore) > new Date()
+      (l) => ["ACTIVE", "BIDDING"].includes(l.status) && new Date(l.bestBefore) > new Date()
     );
 
     // Get my assigned pickups
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.role !== "COLLECTOR") {
+    if (session.user.role !== "COLLECTOR" && session.user.role !== "FARMER") {
       return NextResponse.json({ success: false, error: "Only collectors can claim pickups" }, { status: 403 });
     }
 
@@ -68,36 +68,37 @@ export async function POST(request: NextRequest) {
     }
 
     // Find listing
-    const listing = Array.from(stores.listings.values()).find((l) => l.id === listingId);
+    const listing = stores.listings.get(listingId);
 
     if (!listing) {
       return NextResponse.json({ success: false, error: "Listing not found" }, { status: 404 });
     }
 
-    if (listing.status !== "ACTIVE") {
+    if (!["ACTIVE", "BIDDING"].includes(listing.status)) {
       return NextResponse.json({ success: false, error: "Listing is not available" }, { status: 400 });
     }
 
-    // Create collection record
-    const collection: Collection = {
-      id: generateId("collection"),
+    // Create collection record using helper function
+    const collection = addCollection({
       listingId,
+      listingTitle: listing.title,
       collectorId: session.user.id,
       collectorName: session.user.name,
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : new Date(),
+      donorId: listing.donorId,
+      donorName: listing.donorName,
+      scheduledAt: scheduledAt ? new Date(scheduledAt) : new Date(Date.now() + 2 * 60 * 60 * 1000),
       status: "SCHEDULED",
       photos: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    stores.collections.set(collection.id, collection);
+      address: listing.address,
+      lat: listing.lat,
+      lng: listing.lng,
+    });
 
     // Update listing status
-    listing.status = "ASSIGNED";
-    listing.assignedTo = session.user.id;
-    listing.updatedAt = new Date();
-    stores.listings.set(listing.id, listing);
+    updateListing(listing.id, {
+      status: "ASSIGNED",
+      assignedTo: session.user.id,
+    });
 
     return NextResponse.json({
       success: true,
